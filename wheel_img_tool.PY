@@ -3,10 +3,11 @@ import shutil
 import os
 import sys
 import time
+import configparser
 from datetime import datetime
 import ctypes
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from PIL import Image, ImageTk
 from collections import deque
 
@@ -16,7 +17,7 @@ def refresh_explorer_file(filepath):
         return
     SHCNE_UPDATEITEM = 0x00002000
     SHCNF_PATH = 0x0005
-    ctypes.windll.shell32.SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATH, filepath, None)
+    ctypes.windll.shell32.SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATH, ctypes.c_wchar_p(filepath), None)
 
 
 def get_app_root():
@@ -39,10 +40,100 @@ class ImageToolApp:
         self.root = root
         self.app_dir = get_app_root()
         self.backup_dir = os.path.join(self.app_dir, "wheel_backup")
+        self.config_path = os.path.join(self.app_dir, "config.ini")
         if not os.path.exists(self.backup_dir):
             os.makedirs(self.backup_dir)
 
-        self.root.title("SimuCUBE方向盘更换工具")
+        self.config = configparser.ConfigParser()
+        self.lang = "zh"
+        if os.path.exists(self.config_path):
+            try:
+                self.config.read(self.config_path, encoding="utf-8")
+                saved_lang = self.config.get("UI", "language", fallback="zh")
+                if saved_lang in ["zh", "en"]:
+                    self.lang = saved_lang
+            except Exception:
+                pass
+
+        self.text_data = {
+            "zh": {
+                "win_title": "SimuCUBE方向盘更换工具",
+                "main_title": "SimuCUBE方向盘更换工具",
+                "btn_select": "选择图片",
+                "btn_confirm": "确定执行替换",
+                "scale_text": "缩放比例：",
+                "pos_text": "图片位置调整：",
+                "btn_center": "居中",
+                "btn_reset_scale": "重置缩放(恢复1.0倍+居中)",
+                "magic_group": "魔术橡皮擦（仅擦连通白色区域）",
+                "magic_check": "启用魔术橡皮擦（点击白色区域，只擦除相连白色，变成透明）",
+                "tolerance_text": "白色容差：",
+                "btn_undo": "撤销本次擦除",
+                "left_preview": "待替换图片(400×400预览)",
+                "right_preview": "wheelimage.png(当前)",
+                "status_default": "点击【选择图片】按钮进行选择",
+                "magic_on": "魔术橡皮擦已启用：点击白色连通区域，擦为透明",
+                "magic_off": "魔术橡皮擦已关闭",
+                "tip_no_img": "请先选择图片",
+                "tip_click_out": "点击位置不在图片区域内",
+                "tip_not_white": "点击点不是接近白色，跳过擦除",
+                "tip_already_trans": "当前区域已经透明",
+                "tip_erase_ok": "已擦除连通白色区域",
+                "tip_undo_ok": "已撤销本次擦除",
+                "tip_no_undo": "没有可撤销的擦除",
+                "tip_no_file": "未选择图片",
+                "tip_read_fail": "图片读取失败：{}",
+                "tip_selected": "已选中图片，可缩放、移动、启用魔术橡皮擦",
+                "tip_backup_ok": "旧文件已备份至 wheel_backup\\{}",
+                "tip_replace_ok": "替换完成，已生成400×400 wheelimage.png，可继续调整图片再次替换",
+                "msg_title_tip": "提示",
+                "msg_title_info": "完成",
+                "msg_title_err": "错误",
+                "msg_select_first": "请先选择一张图片！",
+                "msg_replace_info": "替换完成！\n新wheelimage.png位于程序根目录\n历史备份保存在 wheel_backup 文件夹\n当前图片保留，可继续编辑后再次替换",
+                "msg_fail": "操作失败：{}",
+                "lang_text": "语言:"
+            },
+            "en": {
+                "win_title": "SimuCUBE Wheel Image Tool",
+                "main_title": "SimuCUBE Wheel Image Tool",
+                "btn_select": "Select Image",
+                "btn_confirm": "Execute Replace",
+                "scale_text": "Scale:",
+                "pos_text": "Image Position Adjust:",
+                "btn_center": "Center",
+                "btn_reset_scale": "Reset Scale (1.0x + Center)",
+                "magic_group": "Magic Eraser (Only connected white area)",
+                "magic_check": "Enable Magic Eraser (Click white area, erase connected white to transparent)",
+                "tolerance_text": "Tolerance:",
+                "btn_undo": "Undo Erase",
+                "left_preview": "Source Image (400×400 Preview)",
+                "right_preview": "Current wheelimage.png",
+                "status_default": "Click [Select Image] to choose picture",
+                "magic_on": "Magic Eraser ON: Click connected white region to make transparent",
+                "magic_off": "Magic Eraser OFF",
+                "tip_no_img": "Please select an image",
+                "tip_click_out": "Click outside image",
+                "tip_not_white": "Clicked pixel is not near white, skip erase",
+                "tip_already_trans": "This area is already transparent",
+                "tip_erase_ok": "Connected white area erased",
+                "tip_undo_ok": "Undo erase completed",
+                "tip_no_undo": "Nothing to undo",
+                "tip_no_file": "No file selected",
+                "tip_read_fail": "Image load error: {}",
+                "tip_selected": "Image loaded, you can scale, move or use magic eraser",
+                "tip_backup_ok": "Old file backed up to wheel_backup\\{}",
+                "tip_replace_ok": "Replace done, 400×400 wheelimage.png created. Edit and replace again.",
+                "msg_title_tip": "Tip",
+                "msg_title_info": "Complete",
+                "msg_title_err": "Error",
+                "msg_select_first": "Please select an image first!",
+                "msg_replace_info": "Replace completed!\nNew wheelimage.png at app root\nBackups stored in wheel_backup folder\nImage remains, you can edit and replace again.",
+                "msg_fail": "Failed: {}",
+                "lang_text": "Lang:"
+            }
+        }
+
         self.root.geometry("1100x940")
         self.root.resizable(True, True)
 
@@ -59,7 +150,7 @@ class ImageToolApp:
         self.original_pil_img = None
         self.erased_pil_img = None
 
-        self.status_var = tk.StringVar(value="点击【选择图片】按钮进行选择")
+        self.status_var = tk.StringVar(value=self.text_data[self.lang]["status_default"])
         self.scale_var = tk.DoubleVar(value=1.0)
         self.offset_x = tk.IntVar(value=0)
         self.offset_y = tk.IntVar(value=0)
@@ -71,18 +162,40 @@ class ImageToolApp:
         main_frame = tk.Frame(root, padx=16, pady=16)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        tk.Label(
-            main_frame,
-            text="SimuCUBE方向盘更换工具",
-            font=("微软雅黑", 18)
-        ).pack(pady=8)
+        # ============ 修改布局：语言选择放在右上角，标题放在按钮正上方 ============
+        # 语言选择行（右上角）
+        lang_top_frame = tk.Frame(main_frame)
+        lang_top_frame.pack(fill=tk.X)
 
+        lang_frame = tk.Frame(lang_top_frame)
+        lang_frame.pack(side=tk.RIGHT, pady=2)
+        self.label_lang_text = tk.Label(lang_frame, text=self.text_data[self.lang]["lang_text"])
+        self.label_lang_text.pack(side=tk.LEFT)
+        self.cb_lang = ttk.Combobox(lang_frame, values=["中文", "English"], width=10, state="readonly")
+        if self.lang == "zh":
+            self.cb_lang.set("中文")
+        else:
+            self.cb_lang.set("English")
+        self.cb_lang.pack(side=tk.LEFT, padx=4)
+        self.cb_lang.bind("<<ComboboxSelected>>", self.switch_language)
+
+        # 标题框架，放在按钮正上方居中
+        title_frame = tk.Frame(main_frame)
+        title_frame.pack(pady=(4, 0))
+        self.label_main_title = tk.Label(
+            title_frame,
+            text=self.text_data[self.lang]["main_title"],
+            font=("微软雅黑", 18)
+        )
+        self.label_main_title.pack()
+
+        # 两个按钮所在行
         btn_frame = tk.Frame(main_frame)
         btn_frame.pack(pady=10)
 
         self.btn_select = tk.Button(
             btn_frame,
-            text="选择图片",
+            text=self.text_data[self.lang]["btn_select"],
             command=self.on_select_file,
             font=("微软雅黑", 12)
         )
@@ -90,29 +203,24 @@ class ImageToolApp:
 
         self.btn_confirm = tk.Button(
             btn_frame,
-            text="确定执行替换",
+            text=self.text_data[self.lang]["btn_confirm"],
             command=self.on_confirm,
             font=("微软雅黑", 12),
             state=tk.DISABLED,
             bg="#cccccc"
         )
         self.btn_confirm.pack(side=tk.LEFT, padx=8)
-
-        tk.Button(
-            btn_frame,
-            text="刷新预览",
-            command=self.load_wheel_preview,
-            font=("微软雅黑", 12)
-        ).pack(side=tk.LEFT, padx=8)
+        # ======================================================================
 
         scale_frame = tk.Frame(main_frame)
         scale_frame.pack(pady=8, fill=tk.X)
 
-        tk.Label(
+        self.label_scale_text = tk.Label(
             scale_frame,
-            text="缩放比例：",
+            text=self.text_data[self.lang]["scale_text"],
             font=("微软雅黑", 11)
-        ).pack(side=tk.LEFT)
+        )
+        self.label_scale_text.pack(side=tk.LEFT)
 
         self.scale_slider = tk.Scale(
             scale_frame,
@@ -135,7 +243,8 @@ class ImageToolApp:
 
         move_frame = tk.Frame(main_frame)
         move_frame.pack(pady=6)
-        tk.Label(move_frame, text="图片位置调整：", font=("微软雅黑", 11)).pack(side=tk.LEFT, padx=5)
+        self.label_pos_text = tk.Label(move_frame, text=self.text_data[self.lang]["pos_text"], font=("微软雅黑", 11))
+        self.label_pos_text.pack(side=tk.LEFT, padx=5)
 
         row_up = tk.Frame(move_frame)
         row_up.pack()
@@ -144,7 +253,17 @@ class ImageToolApp:
         row_mid = tk.Frame(move_frame)
         row_mid.pack()
         tk.Button(row_mid, text="←", width=3, command=self.move_left, font=("微软雅黑", 11)).pack(side=tk.LEFT, padx=2)
-        tk.Button(row_mid, text="居中", width=5, command=self.reset_offset, font=("微软雅黑", 11)).pack(side=tk.LEFT, padx=2)
+
+        # 居中按钮，双语切换
+        self.btn_center = tk.Button(
+            row_mid,
+            text=self.text_data[self.lang]["btn_center"],
+            width=5,
+            command=self.reset_offset,
+            font=("微软雅黑", 11)
+        )
+        self.btn_center.pack(side=tk.LEFT, padx=2)
+
         tk.Button(row_mid, text="→", width=3, command=self.move_right, font=("微软雅黑", 11)).pack(side=tk.LEFT, padx=2)
 
         row_down = tk.Frame(move_frame)
@@ -153,27 +272,30 @@ class ImageToolApp:
 
         reset_scale_frame = tk.Frame(main_frame)
         reset_scale_frame.pack(pady=4)
-        tk.Button(
+        self.btn_reset_scale = tk.Button(
             reset_scale_frame,
-            text="重置缩放(恢复1.0倍+居中)",
+            text=self.text_data[self.lang]["btn_reset_scale"],
             command=self.reset_scale,
             font=("微软雅黑", 11)
-        ).pack()
+        )
+        self.btn_reset_scale.pack()
 
-        magic_frame = tk.LabelFrame(main_frame, text="魔术橡皮擦（仅擦连通白色区域）", padx=8, pady=6)
-        magic_frame.pack(pady=6, fill=tk.X)
+        self.magic_frame = tk.LabelFrame(main_frame, text=self.text_data[self.lang]["magic_group"], padx=8, pady=6)
+        self.magic_frame.pack(pady=6, fill=tk.X)
 
-        tk.Checkbutton(
-            magic_frame,
-            text="启用魔术橡皮擦（点击白色区域，只擦除相连白色，变成透明）",
+        self.chk_magic = tk.Checkbutton(
+            self.magic_frame,
+            text=self.text_data[self.lang]["magic_check"],
             variable=self.magic_mode,
             command=self.update_magic_cursor,
             font=("微软雅黑", 11)
-        ).pack(side=tk.LEFT)
+        )
+        self.chk_magic.pack(side=tk.LEFT)
 
-        tk.Label(magic_frame, text="白色容差：", font=("微软雅黑", 11)).pack(side=tk.LEFT, padx=(10, 0))
+        self.label_tolerance = tk.Label(self.magic_frame, text=self.text_data[self.lang]["tolerance_text"], font=("微软雅黑", 11))
+        self.label_tolerance.pack(side=tk.LEFT, padx=(10, 0))
         self.tolerance_slider = tk.Scale(
-            magic_frame,
+            self.magic_frame,
             from_=0,
             to=80,
             resolution=1,
@@ -182,24 +304,25 @@ class ImageToolApp:
             length=220
         )
         self.tolerance_slider.pack(side=tk.LEFT, padx=5)
-        self.tolerance_label = tk.Label(magic_frame, text="15", font=("微软雅黑", 11), width=4)
+        self.tolerance_label = tk.Label(self.magic_frame, text="15", font=("微软雅黑", 11), width=4)
         self.tolerance_label.pack(side=tk.LEFT)
         self.tolerance_var.trace_add("write", lambda *args: self.tolerance_label.config(text=str(self.tolerance_var.get())))
 
-        tk.Button(
-            magic_frame,
-            text="撤销本次擦除",
+        self.btn_undo = tk.Button(
+            self.magic_frame,
+            text=self.text_data[self.lang]["btn_undo"],
             command=self.undo_erase,
             font=("微软雅黑", 11)
-        ).pack(side=tk.RIGHT)
+        )
+        self.btn_undo.pack(side=tk.RIGHT)
 
         preview_frame = tk.Frame(main_frame)
         preview_frame.pack(pady=12, fill=tk.BOTH, expand=True)
 
-        # 左侧预览画布
         left_panel = tk.Frame(preview_frame, bd=2, relief=tk.SUNKEN)
         left_panel.pack(side=tk.LEFT, padx=12, fill=tk.BOTH, expand=True)
-        tk.Label(left_panel, text="待替换图片(400×400预览)", font=("微软雅黑", 11)).pack(pady=4)
+        self.label_left_preview = tk.Label(left_panel, text=self.text_data[self.lang]["left_preview"], font=("微软雅黑", 11))
+        self.label_left_preview.pack(pady=4)
 
         self.left_canvas = tk.Canvas(left_panel, width=400, height=400, bg="#eeeeee", highlightthickness=0)
         self.left_canvas.pack(padx=4, pady=4)
@@ -212,10 +335,10 @@ class ImageToolApp:
         self.canvas_image_id = None
         self.left_canvas.bind("<Button-1>", self.on_canvas_click)
 
-        # 右侧预览画布
         right_panel = tk.Frame(preview_frame, bd=2, relief=tk.SUNKEN)
         right_panel.pack(side=tk.LEFT, padx=12, fill=tk.BOTH, expand=True)
-        tk.Label(right_panel, text="wheelimage.png(当前)", font=("微软雅黑", 11)).pack(pady=4)
+        self.label_right_preview = tk.Label(right_panel, text=self.text_data[self.lang]["right_preview"], font=("微软雅黑", 11))
+        self.label_right_preview.pack(pady=4)
 
         self.right_canvas = tk.Canvas(right_panel, width=400, height=400, bg="#eeeeee", highlightthickness=0)
         self.right_canvas.pack(padx=4, pady=4)
@@ -234,24 +357,52 @@ class ImageToolApp:
 
         self.load_wheel_preview()
 
-    # ==========工具函数：启用确认按钮==========
+    def switch_language(self, event):
+        sel = self.cb_lang.get()
+        if sel == "中文":
+            self.lang = "zh"
+        else:
+            self.lang = "en"
+        t = self.text_data[self.lang]
+        self.root.title(t["win_title"])
+        self.label_main_title.config(text=t["main_title"])
+        self.btn_select.config(text=t["btn_select"])
+        self.btn_confirm.config(text=t["btn_confirm"])
+        self.label_scale_text.config(text=t["scale_text"])
+        self.label_pos_text.config(text=t["pos_text"])
+        self.btn_center.config(text=t["btn_center"])
+        self.btn_reset_scale.config(text=t["btn_reset_scale"])
+        self.magic_frame.config(text=t["magic_group"])
+        self.chk_magic.config(text=t["magic_check"])
+        self.label_tolerance.config(text=t["tolerance_text"])
+        self.btn_undo.config(text=t["btn_undo"])
+        self.label_left_preview.config(text=t["left_preview"])
+        self.label_right_preview.config(text=t["right_preview"])
+        self.label_lang_text.config(text=t["lang_text"])
+        self.status_var.set(t["status_default"])
+
+        self.config["UI"] = {"language": self.lang}
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            self.config.write(f)
+
     def enable_confirm_btn(self):
         if self.erased_pil_img is not None:
             self.btn_confirm.config(state=tk.NORMAL, bg="#7ccd7c")
 
     def update_magic_cursor(self):
+        t = self.text_data[self.lang]
         if self.magic_mode.get():
             self.left_canvas.config(cursor="target")
-            self.status_var.set("魔术橡皮擦已启用：点击白色连通区域，擦为透明")
+            self.status_var.set(t["magic_on"])
         else:
             self.left_canvas.config(cursor="")
-            self.status_var.set("魔术橡皮擦已关闭")
+            self.status_var.set(t["magic_off"])
 
     def on_canvas_click(self, event):
         if not self.magic_mode.get():
             return
         if self.erased_pil_img is None:
-            messagebox.showinfo("提示", "请先选择图片")
+            messagebox.showinfo(self.text_data[self.lang]["msg_title_tip"], self.text_data[self.lang]["tip_no_img"])
             return
 
         canvas_x = max(0, min(399, event.x))
@@ -272,7 +423,7 @@ class ImageToolApp:
         img_y = canvas_y - base_y - off_y
 
         if img_x < 0 or img_x >= new_w or img_y < 0 or img_y >= new_h:
-            self.status_var.set("点击位置不在图片区域内")
+            self.status_var.set(self.text_data[self.lang]["tip_click_out"])
             return
 
         orig_x = int(img_x / scale)
@@ -281,19 +432,19 @@ class ImageToolApp:
         self.apply_magic_erase_white(orig_x, orig_y)
 
     def apply_magic_erase_white(self, click_x, click_y):
-        """BFS泛洪填充，擦除连通近似白色区域为透明，全Pillow兼容"""
         img = self.erased_pil_img
         tolerance = self.tolerance_var.get()
         w, h = img.size
+        t = self.text_data[self.lang]
         try:
             r0, g0, b0, a0 = img.getpixel((click_x, click_y))
         except Exception:
             return
         if not (r0 >= 255 - tolerance and g0 >= 255 - tolerance and b0 >= 255 - tolerance):
-            self.status_var.set("点击点不是接近白色，跳过擦除")
+            self.status_var.set(t["tip_not_white"])
             return
         if a0 == 0:
-            self.status_var.set("当前区域已经透明")
+            self.status_var.set(t["tip_already_trans"])
             return
 
         from collections import deque
@@ -315,18 +466,19 @@ class ImageToolApp:
                         visited[nx][ny] = True
                         q.append((nx, ny))
         img.putalpha(alpha)
-        self.status_var.set("已擦除连通白色区域")
+        self.status_var.set(t["tip_erase_ok"])
         self.update_selected_preview()
-        self.enable_confirm_btn() #擦除后，重新启用确认按钮
+        self.enable_confirm_btn()
 
     def undo_erase(self):
+        t = self.text_data[self.lang]
         if self.original_pil_img is None:
-            messagebox.showinfo("提示", "没有可撤销的擦除")
+            messagebox.showinfo(t["msg_title_tip"], t["tip_no_undo"])
             return
         self.erased_pil_img = self.original_pil_img.copy()
-        self.status_var.set("已撤销本次擦除")
+        self.status_var.set(t["tip_undo_ok"])
         self.update_selected_preview()
-        self.enable_confirm_btn() #撤销后启用确认按钮
+        self.enable_confirm_btn()
 
     def move_up(self):
         self.offset_y.set(self.offset_y.get() - self.move_step)
@@ -441,9 +593,9 @@ class ImageToolApp:
             title="选择图片",
             filetypes=filetypes
         )
-
+        t = self.text_data[self.lang]
         if not src:
-            self.status_var.set("未选择图片")
+            self.status_var.set(t["tip_no_file"])
             self.selected_src_path = None
             self.original_pil_img = None
             self.erased_pil_img = None
@@ -462,17 +614,18 @@ class ImageToolApp:
             self.left_canvas.config(cursor="")
             self.update_selected_preview()
             self.btn_confirm.config(state=tk.NORMAL, bg="#7ccd7c")
-            self.status_var.set("已选中图片，可缩放、移动、启用魔术橡皮擦")
+            self.status_var.set(t["tip_selected"])
         except Exception as e:
             self.selected_src_path = None
             self.original_pil_img = None
             self.erased_pil_img = None
             self.btn_confirm.config(state=tk.DISABLED, bg="#cccccc")
-            self.status_var.set(f"图片读取失败：{e}")
+            self.status_var.set(t["tip_read_fail"].format(e))
 
     def on_confirm(self):
+        t = self.text_data[self.lang]
         if self.erased_pil_img is None:
-            messagebox.showwarning("提示", "请先选择一张图片！")
+            messagebox.showwarning(t["msg_title_tip"], t["msg_select_first"])
             return
 
         target_file = os.path.join(self.app_dir, "wheelimage.png")
@@ -483,8 +636,7 @@ class ImageToolApp:
                 backup_filename = f"wheelimage_backup_{timestamp}.png"
                 backup_full_path = os.path.join(self.backup_dir, backup_filename)
                 shutil.move(target_file, backup_full_path)
-                refresh_explorer_file(backup_full_path)
-                self.status_var.set(f"旧文件已备份至 wheel_backup\\{backup_filename}")
+                self.status_var.set(t["tip_backup_ok"].format(backup_filename))
 
             scale = self.scale_var.get()
             off_x = self.offset_x.get()
@@ -510,22 +662,13 @@ class ImageToolApp:
             time.sleep(0.1)
             refresh_explorer_file(target_file)
 
-            self.status_var.set("替换完成，已生成400×400 wheelimage.png，可继续调整图片再次替换")
-            messagebox.showinfo(
-                "完成",
-                "替换完成！\n新wheelimage.png位于程序根目录\n历史备份保存在 wheel_backup 文件夹\n当前图片保留，可继续编辑后再次替换"
-            )
+            self.status_var.set(t["tip_replace_ok"])
+            messagebox.showinfo(t["msg_title_info"], t["msg_replace_info"])
             self.load_wheel_preview()
 
-            # =========【重点改动】注释掉清空图片的代码，图片保留，不重置 =========
-            # self.selected_src_path = None
-            # self.original_pil_img = None
-            # self.erased_pil_img = None
-            # self.btn_confirm.config(state=tk.DISABLED, bg="#cccccc")
-
         except Exception as e:
-            self.status_var.set(f"操作失败：{e}")
-            messagebox.showerror("错误", str(e))
+            self.status_var.set(t["msg_fail"].format(e))
+            messagebox.showerror(t["msg_title_err"], str(e))
 
 
 if __name__ == "__main__":

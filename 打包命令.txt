@@ -1,5 +1,5 @@
 打包命令（不变，app.ico 和 py 放同一目录）
-cmd cd /d D:\
+cmd  cd /d D:\   进入D盘
 rmdir /s /q dist build
 del *.spec
-pyinstaller -F -w --collect-all PIL --add-data "app.ico;." --icon=app.ico wheel_img_tool.py
+pyinstaller -F -w --collect-all PIL --icon=app.ico wheel_img_tool.py
